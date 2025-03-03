@@ -1,0 +1,11 @@
+# IDE specific files
+*.swp
+*.swo
+*.DS_Store
+*.vscode/
+.idea/
+# Environment variable files
+.env
+
+venv
+
