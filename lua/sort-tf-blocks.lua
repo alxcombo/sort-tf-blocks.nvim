@@ -16,7 +16,7 @@ function M.setup(user_config)
 		vim.api.nvim_set_keymap(
 			"n",
 			M.config.keymaps.sort_tf_keymap,
-			string.format(':lua require("sort-tf-vars").%s()<CR>', sort_function),
+			string.format(':lua require("sort-tf-blocks").%s()<CR>', sort_function),
 			{ noremap = true, silent = true, desc = "Terraform Sort blocks" }
 		)
 	end
