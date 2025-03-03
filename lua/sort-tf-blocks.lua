@@ -3,18 +3,20 @@ local M = {}
 M.config = {
 	verbosity = 0, -- 0 = no log, 1 = essential, 2 = detailed
 	keymaps = {
-		sort_tf_keymap = "<leader>tsv",
+		sort_tf_keymap = "<leader>tsb",
 	},
+	use_treesitter = true,
 }
 
 function M.setup(user_config)
 	print("In setup function")
 	M.config = vim.tbl_deep_extend("force", M.config, user_config or {})
 	if M.config.keymaps.sort_tf_keymap then
+		local sort_function = M.config.use_treesitter and "sort_terraform_blocks_treesitter" or "sort_terraform_blocks"
 		vim.api.nvim_set_keymap(
 			"n",
 			M.config.keymaps.sort_tf_keymap,
-			':lua require("sort-tf-vars").sort_terraform_blocks()<CR>',
+			string.format(':lua require("sort-tf-vars").%s()<CR>', sort_function),
 			{ noremap = true, silent = true, desc = "Terraform Sort blocks" }
 		)
 	end
@@ -165,27 +167,140 @@ function M.sort_terraform_blocks()
 		table.remove(sorted_lines)
 	end
 
-	-- Check if there are any changes
+	M.update_buffer_if_changed(lines, sorted_lines)
+end
+
+function M.traverse_tree(node, blocks)
+	for child in node:iter_children() do
+		log("Node type: " .. child:type(), 2)
+		if
+			child:type() == "block"
+			or child:type() == "resource"
+			or child:type() == "data"
+			or child:type() == "module"
+			or child:type() == "variable"
+			or child:type() == "output"
+		then
+			local start_row, _, end_row, _ = child:range()
+			local lines = vim.api.nvim_buf_get_lines(0, start_row, end_row + 1, false)
+			table.insert(blocks, { node = child, content = lines, start_row = start_row, end_row = end_row })
+			log("Found block: " .. lines[1], 2)
+		else
+			M.traverse_tree(child, blocks)
+		end
+	end
+end
+
+function M.collect_standalone_comments(current_lines, blocks)
+	local standalone_comments = {}
+	for i, line in ipairs(current_lines) do
+		local is_in_block = false
+		for _, block in ipairs(blocks) do
+			if i > block.start_row and i <= block.end_row + 1 then
+				is_in_block = true
+				break
+			end
+		end
+		if not is_in_block then
+			if line:match("^%s*#") or not line:match("^%s*$") then
+				table.insert(standalone_comments, line)
+			end
+		end
+	end
+	return standalone_comments
+end
+
+function M.sort_blocks(blocks)
+	table.sort(blocks, function(a, b)
+		local a_first_line = a.content[1]:gsub("^%s+", "")
+		local b_first_line = b.content[1]:gsub("^%s+", "")
+		return a_first_line < b_first_line
+	end)
+end
+
+function M.generate_sorted_lines(blocks, standalone_comments)
+	local sorted_lines = {}
+	for _, comment in ipairs(standalone_comments) do
+		table.insert(sorted_lines, comment)
+	end
+	if #standalone_comments > 0 then
+		table.insert(sorted_lines, "")
+	end
+
+	for i, block in ipairs(blocks) do
+		if i > 1 then
+			table.insert(sorted_lines, "")
+		end
+		for _, line in ipairs(block.content) do
+			table.insert(sorted_lines, line)
+		end
+	end
+	return sorted_lines
+end
+
+function M.update_buffer_if_changed(current_lines, sorted_lines)
 	local has_changed = false
-	if #lines ~= #sorted_lines then
+	if #current_lines ~= #sorted_lines then
 		has_changed = true
+		log("Number of lines changed", 1)
 	else
-		for i = 1, #lines do
-			if lines[i] ~= sorted_lines[i] then
+		for i = 1, #current_lines do
+			if current_lines[i] ~= sorted_lines[i] then
 				has_changed = true
+				log("Content changed at line " .. i, 2)
 				break
 			end
 		end
 	end
 
 	if has_changed then
-		vim.api.nvim_buf_set_lines(0, 0, -1, false, sorted_lines)
-		log("Writing to the buffer", 1)
-		M.send_notification("Terraform blocks have been sorted.", "info")
+		if #sorted_lines > 0 then
+			vim.api.nvim_buf_set_lines(0, 0, -1, false, sorted_lines)
+			log("Writing " .. #sorted_lines .. " lines to buffer", 1)
+			M.send_notification("Terraform blocks have been sorted.", "info")
+		else
+			log("No lines to write, keeping original content", 1)
+			M.send_notification("Error: No sorted lines generated. Keeping original content.", "error")
+		end
 	else
-		log("No change in the buffer", 1)
+		log("No changes detected", 1)
 		M.send_notification("No changes in Terraform blocks.", "info")
 	end
+end
+
+function M.sort_terraform_blocks_treesitter()
+	local parser = vim.treesitter.get_parser(0, "terraform")
+	if not parser then
+		M.send_notification("Terraform parser not found. Is tree-sitter-terraform installed?", "error")
+		return
+	end
+
+	local tree = parser:parse()[1]
+	local root = tree:root()
+
+	log("Parsing Terraform file with Treesitter", 1)
+
+	local blocks = {}
+	M.traverse_tree(root, blocks)
+
+	local current_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+	local standalone_comments = M.collect_standalone_comments(current_lines, blocks)
+
+	log("Number of blocks found: " .. #blocks, 1)
+	log("Number of standalone comments and non-block lines: " .. #standalone_comments, 1)
+
+	if #blocks == 0 then
+		M.send_notification("No Terraform blocks found in the file.", "warn")
+		return
+	end
+
+	M.sort_blocks(blocks)
+
+	local sorted_lines = M.generate_sorted_lines(blocks, standalone_comments)
+
+	log("Number of sorted lines: " .. #sorted_lines, 1)
+
+	M.update_buffer_if_changed(current_lines, sorted_lines)
 end
 
 return M
