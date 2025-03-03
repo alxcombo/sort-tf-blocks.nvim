@@ -35,20 +35,24 @@ end
 
 local function log(message, level)
 	level = level or 1 -- Default level = 1
-	if (M.config.verbosity or 0) >= level then -- Avoid comparison with nil
+	if (M.config.verbosity or 0) >= level then
 		print(message)
 	end
 end
 
 function M.sort_terraform_variables()
-	log("Starting to sort Terraform variables", 1)
 	local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+	log("Starting to sort Terraform variables", 1)
+
 	local blocks = {}
 	local current_block = {}
 	local inside_block = false
 
 	for _, line in ipairs(lines) do
-		if line:match('^variable%s+".+"%s*{') then
+		if line:match('^variable%s+"[^"]+"%s*{') then
+			if inside_block then
+				table.insert(blocks, current_block)
+			end
 			inside_block = true
 			current_block = { line }
 		elseif inside_block then
@@ -58,36 +62,43 @@ function M.sort_terraform_variables()
 				table.insert(blocks, current_block)
 				current_block = {}
 			end
-		elseif line:match("^%s*$") then
-		-- Ignore unnecessary empty lines
-		else
-			table.insert(blocks, { line }) -- Keep lines outside blocks (e.g., comments)
 		end
 	end
 
-	-- Sort the blocks only if they are variables, with strict ASCII sorting
+	if inside_block then
+		table.insert(blocks, current_block)
+	end
+
+	-- Sort the blocks
 	table.sort(blocks, function(a, b)
-		local name_a = a[1]:match('^variable%s+"([^"]+)"%s*{')
-		local name_b = b[1]:match('^variable%s+"([^"]+)"%s*{')
-		return name_a and name_b and name_a:lower() < name_b:lower()
+		local name_a = a[1]:match('^variable%s+"([^"]+)"%s*{') or ""
+		local name_b = b[1]:match('^variable%s+"([^"]+)"%s*{') or ""
+		return name_a:lower() < name_b:lower()
 	end)
 
-	-- Flatten the blocks into lines while removing unnecessary empty spaces
+	-- Flatten the blocks into lines
 	local sorted_lines = {}
-	for _, block in ipairs(blocks) do
+	for i, block in ipairs(blocks) do
 		for _, line in ipairs(block) do
 			table.insert(sorted_lines, line)
 		end
-		table.insert(sorted_lines, "") -- Add an empty line between blocks for readability
+		if i < #blocks then
+			table.insert(sorted_lines, "") -- Add an empty line between blocks
+		end
 	end
 
-	-- Remove the last unnecessary empty line
-	if sorted_lines[#sorted_lines] == "" then
-		table.remove(sorted_lines)
+	-- Check if there are any changes
+	local has_changed = false
+	if #lines ~= #sorted_lines then
+		has_changed = true
+	else
+		for i = 1, #lines do
+			if lines[i] ~= sorted_lines[i] then
+				has_changed = true
+				break
+			end
+		end
 	end
-
-	-- Replace the buffer with the new sorted lines
-	local has_changed = #lines ~= #sorted_lines
 
 	if has_changed then
 		vim.api.nvim_buf_set_lines(0, 0, -1, false, sorted_lines)
