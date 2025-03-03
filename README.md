@@ -52,6 +52,30 @@ The plugin uses Neovim's native notification system to inform you about the sort
 - The blocks have been successfully sorted.
 - No changes were detected in the buffer.
 
+## Configuration of pre-commit
+
+To configure `pre-commit`, follow these steps:
+
+1. Create a virtual environment:
+   ```bash
+   python3 -m venv venv
+   ```
+
+2. Activate the virtual environment:
+   ```bash
+   source venv/bin/activate
+   ```
+
+3. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Install `pre-commit`:
+   ```bash
+   pre-commit install
+   ```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests.
