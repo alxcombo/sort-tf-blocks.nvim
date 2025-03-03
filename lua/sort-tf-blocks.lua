@@ -5,7 +5,7 @@ M.config = {
 	keymaps = {
 		sort_tf_keymap = "<leader>tsb",
 	},
-	use_treesitter = true,
+	use_treesitter = true, --default
 }
 
 function M.setup(user_config)
