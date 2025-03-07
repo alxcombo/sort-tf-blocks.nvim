@@ -1,85 +1,122 @@
 # sort-tf-blocks.nvim
 
-A Neovim plugin for sorting Terraform blocks in your configuration files. This plugin helps maintain a clean and organized structure in your Terraform files by automatically sorting blocks.
+A Neovim plugin to sort Terraform blocks in a logical order.
 
 ## Features
 
-- Sorts Terraform blocks alphabetically.
-- Notifies users when blocks are sorted or if no changes are made.
-- Configurable key mappings for easy access.
+- Sort Terraform blocks by type and then alphabetically
+- Preserve standalone comments
+- Customizable block order
+- Uses Treesitter for accurate parsing
 
 ## Installation
 
-You can install this plugin using `lazy.vim`. Here’s how to do it:
+Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
 
 ```lua
-require('lazy').setup({
-    { 'alxcombo/sort-tf-blocks.nvim' }
+use {
+  'alexandre/sort-tf-blocks.nvim',
+  config = function()
+    require('sort-tf-blocks').setup({
+      -- Optional configuration
+    })
+  end
+}
+```
+
+Using [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{
+  'alexandre/sort-tf-blocks.nvim',
+  config = function()
+    require('sort-tf-blocks').setup({
+      -- Optional configuration
+    })
+  end
+}
+```
+
+## Configuration
+
+```lua
+require('sort-tf-blocks').setup({
+  verbosity = 0, -- 0 = no log, 1 = essential, 2 = detailed
+  keymaps = {
+    sort_tf_keymap = "<leader>tsb", -- Keymap to sort Terraform blocks
+  },
+  block_order = {  -- Define the order of block types (lower index = higher priority)
+    "terraform",  -- Configuration block
+    "provider",   -- Provider configuration
+    "variable",   -- Input variables
+    "locals",     -- Local values
+    "data",       -- Data sources
+    "resource",   -- Resources
+    "module",     -- Module calls
+    "output",     -- Output values
+    "moved",      -- Moved blocks (for refactoring)
+    "check"       -- Validation checks
+  }
 })
 ```
 
 ## Usage
 
-To sort the Terraform blocks in the current buffer, use the configured key mapping. By default, it is set to `<leader>tsb`.
+1. Open a Terraform file
+2. Press `<leader>tsb` (or your configured keymap) to sort the blocks
+3. The blocks will be sorted by type according to the defined order, and then alphabetically within each type
 
-You can also call the sorting function directly:
+## Supported Block Types
 
-```lua
-:lua require("sort-tf-blocks").sort_terraform_blocks_treesitter()
+The plugin supports the following Terraform block types:
+
+- `terraform` - Terraform configuration blocks
+- `provider` - Provider configuration blocks
+- `variable` - Input variable blocks
+- `locals` - Local value blocks
+- `data` - Data source blocks
+- `resource` - Resource blocks
+- `module` - Module call blocks
+- `output` - Output value blocks
+- `moved` - Moved blocks (for refactoring)
+- `check` - Validation check blocks
+
+## Example
+
+Before:
+
+```hcl
+resource "aws_instance" "web" {
+  ami           = "ami-12345"
+  instance_type = "t2.micro"
+}
+
+variable "region" {
+  default = "us-west-2"
+}
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+}
 ```
 
-## Configuration
+After:
 
-You can customize the plugin's behavior by setting options in your Neovim configuration. Here’s an example:
+```hcl
+variable "region" {
+  default = "us-west-2"
+}
 
-```lua
-require("lazy").setup({
-    { 'alxcombo/sort-tf-blocks.nvim', config = function()
-        require("sort-tf-blocks").setup({
-            verbosity = 1, -- 0 = no log, 1 = essential, 2 = detailed
-            keymaps = {
-                sort_tf_keymap = "<leader>tsb", -- Change this to your preferred key mapping
-            },
-        })
-    end }
-})
+data "aws_ami" "ubuntu" {
+  most_recent = true
+}
+
+resource "aws_instance" "web" {
+  ami           = "ami-12345"
+  instance_type = "t2.micro"
+}
 ```
-
-## Notifications
-
-The plugin uses Neovim's native notification system to inform you about the sorting process. You will receive notifications when:
-
-- The blocks have been successfully sorted.
-- No changes were detected in the buffer.
-
-## Configuration of pre-commit
-
-To configure `pre-commit`, follow these steps:
-
-1. Create a virtual environment:
-   ```bash
-   python3 -m venv venv
-   ```
-
-2. Activate the virtual environment:
-   ```bash
-   source venv/bin/activate
-   ```
-
-3. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Install `pre-commit`:
-   ```bash
-   pre-commit install
-   ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT
