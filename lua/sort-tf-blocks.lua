@@ -6,23 +6,28 @@ M.config = {
 		sort_tf_keymap = "<leader>tsb",
 	},
 	use_treesitter = true, --default
-	block_order = {  -- Define the order of block types (lower index = higher priority)
-		"terraform",  -- Configuration block
-		"provider",   -- Provider configuration
-		"variable",   -- Input variables
-		"locals",     -- Local values
-		"data",       -- Data sources
-		"resource",   -- Resources
-		"module",     -- Module calls
-		"output",     -- Output values
-		"moved",      -- Moved blocks (for refactoring)
-		"check"       -- Validation checks
-	}
+	block_order = { -- Define the order of block types (lower index = higher priority)
+		"terraform", -- Configuration block
+		"provider", -- Provider configuration
+		"variable", -- Input variables
+		"locals", -- Local values
+		"data", -- Data sources
+		"resource", -- Resources
+		"module", -- Module calls
+		"output", -- Output values
+		"moved", -- Moved blocks (for refactoring)
+		"check", -- Validation checks
+	},
 }
 
 function M.setup(user_config)
 	print("In setup function")
 	M.config = vim.tbl_deep_extend("force", M.config, user_config or {})
+	-- Debug: Print the block_order configuration
+	print("Block order configuration:")
+	for i, block_type in ipairs(M.config.block_order) do
+		print(i .. ": " .. block_type)
+	end
 	if M.config.keymaps.sort_tf_keymap then
 		local sort_function = "sort_terraform_blocks_treesitter"
 		vim.api.nvim_set_keymap(
@@ -71,14 +76,16 @@ function M.traverse_tree(node, blocks)
 			-- Store the actual type for sorting purposes
 			local block_type = child:type()
 
-			-- Handle special case for data and resource blocks
+			-- Handle special case for blocks
 			if block_type == "block" then
-				-- Try to determine if it's a data or resource block from the content
+				-- Try to determine block type from the content
 				local first_line = lines[1]:gsub("^%s+", "")
 				if first_line:match("^data%s+") then
 					block_type = "data"
 				elseif first_line:match("^resource%s+") then
 					block_type = "resource"
+				elseif first_line:match("^module%s+") then
+					block_type = "module"
 				elseif first_line:match("^provider%s+") then
 					block_type = "provider"
 				elseif first_line:match("^terraform%s*{") then
@@ -89,7 +96,12 @@ function M.traverse_tree(node, blocks)
 					block_type = "moved"
 				elseif first_line:match("^check%s*{") then
 					block_type = "check"
+				elseif first_line:match("^variable%s+") then
+					block_type = "variable"
+				elseif first_line:match("^output%s+") then
+					block_type = "output"
 				end
+				log("Identified block type: " .. block_type .. " from line: " .. first_line, 1)
 			end
 
 			table.insert(blocks, {
@@ -97,9 +109,9 @@ function M.traverse_tree(node, blocks)
 				content = lines,
 				start_row = start_row,
 				end_row = end_row,
-				block_type = block_type -- Store the actual block type
+				block_type = block_type, -- Store the actual block type
 			})
-			log("Found block: " .. lines[1], 2)
+			log("Found block: " .. lines[1] .. " of type: " .. block_type, 1)
 		else
 			M.traverse_tree(child, blocks)
 		end
