@@ -9,55 +9,36 @@ A Neovim plugin to sort Terraform blocks in a logical order.
 - Customizable block order
 - Uses Treesitter for accurate parsing
 
-## Installation
-
-Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
-
-```lua
-use {
-  'alexandre/sort-tf-blocks.nvim',
-  config = function()
-    require('sort-tf-blocks').setup({
-      -- Optional configuration
-    })
-  end
-}
-```
+## Installation and configuration
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-{
-  'alexandre/sort-tf-blocks.nvim',
-  config = function()
-    require('sort-tf-blocks').setup({
-      -- Optional configuration
-    })
-  end
-}
-```
-
-## Configuration
-
-```lua
-require('sort-tf-blocks').setup({
-  verbosity = 0, -- 0 = no log, 1 = essential, 2 = detailed
-  keymaps = {
-    sort_tf_keymap = "<leader>tsb", -- Keymap to sort Terraform blocks
+return {
+  {
+    "alxcombo/sort-tf-blocks.nvim",
+    config = function()
+      require("sort-tf-blocks").setup({
+        verbosity = 0,
+        keymaps = {
+          sort_tf_keymap = "<leader>tsb", -- Change this to your preferred key mapping
+        },
+        block_order = {
+          "terraform",
+          "provider",
+          "variable",
+          "locals",
+          "data",
+          "resource",
+          "module",
+          "output",
+          "moved",
+          "check",
+        },
+      })
+    end,
   },
-  block_order = {  -- Define the order of block types (lower index = higher priority)
-    "terraform",  -- Configuration block
-    "provider",   -- Provider configuration
-    "variable",   -- Input variables
-    "locals",     -- Local values
-    "data",       -- Data sources
-    "resource",   -- Resources
-    "module",     -- Module calls
-    "output",     -- Output values
-    "moved",      -- Moved blocks (for refactoring)
-    "check"       -- Validation checks
-  }
-})
+}
 ```
 
 ## Usage
